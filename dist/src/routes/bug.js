@@ -15,26 +15,33 @@ const db = new sqlite.Database("./db/bug.db", sqlite.OPEN_READWRITE, err => {
 });
 db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS bug (id INTEGER PRIMARY KEY, title TEXT, text TEXT, closed INTEGER)");
-    db.run("INSERT INTO bug (title, text, closed) values (?, ?, ?)", ["Test Bug", "This is a test bug", 0], err => {
-        if (err)
-            console.log("Error inserting into table bug:", err);
-    });
 });
 const router = express_1.default.Router();
-router.get("/", (req, res) => {
+router.get("/", (_req, res) => {
+    const sql = "SELECT * FROM bug";
     db.serialize(() => {
-        db.get("SELECT * FROM bug", (err, row) => {
+        db.all(sql, (err, row) => {
             res.json(row);
         });
     });
 });
-router.post("/", (req, res) => {
-    res.send("Post");
+router.post("/", (_req, res) => {
+    const sql = "INSERT INTO bug (title, text, closed) values (?, ?, ?), (?, ?, ?)";
+    const bugArr = [
+        ["Test Bug", "This is a test bug", 0],
+        ["Bug 2", "bugbugbug", 0]
+    ];
+    const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+    db.all(sql, sqlVals, (err) => {
+        if (err)
+            console.log("Error inserting into table bug:", err);
+    });
+    res.send("Done");
 });
-router.put("/", (req, res) => {
+router.put("/", (_req, res) => {
     res.send("put");
 });
-router.delete("/", (req, res) => {
+router.delete("/", (_req, res) => {
     res.send("Delete");
 });
 exports.default = router;
