@@ -1,6 +1,5 @@
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
-
 import bugRoute from "./routes/bug";
 
 const app: Express = express();
