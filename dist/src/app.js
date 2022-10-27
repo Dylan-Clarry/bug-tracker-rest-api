@@ -9,7 +9,7 @@ const bug_1 = __importDefault(require("./routes/bug"));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use("/bug", bug_1.default);
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
     res.send("sending it");
 });
 exports.default = app;

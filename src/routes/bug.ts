@@ -19,33 +19,74 @@ db.serialize(() => {
 const router: express.Router = express.Router();
 router.get("/", (_req: Request, res: Response) => {
     const sql = "SELECT * FROM bug";
-    db.serialize(() => {
-        db.all(sql, (err, row) => {
-            if(err) console.log("Error selecting all values from table bug", err);
-            res.json(row);
+    try {
+        db.serialize(() => {
+            db.all(sql, (err, rows) => {
+                if(err){
+                    console.log("Error selecting all values from table bug:", err);
+                    return res.status(500).json({
+                        data: null,
+                        error: {
+                            msg: "Error selecting all values from table bug:" + err.message,
+                            ...err
+                        }
+                    });
+                } else {
+                    return res.status(200).json({
+                        data: rows,
+                        error: null,
+                    });
+                }
+            });
         });
-    })
+    } catch(err) {
+        return res.status(500).json({
+            data: null,
+            error: err,
+        });
+    }
 });
 
 router.post("/", (_req: Request, res: Response) => {
     const bugArr = [
         ["Test Bug", "This is a test bug", 0],
-        ["Bug 2", "bugbugbug", 0]
+        ["Bug 3", "Buggy", 0],
+        ["Bug 5: The search for 4", "A bug is not just a bug, he is a bug, he is a a bug", 0]
     ];
 
-    db.serialize(() => {
-        const sql = "INSERT INTO bug (title, text, closed) values (?, ?, ?), (?, ?, ?)";
-        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
-        db.run(sql, sqlVals, (err) => {
-            if(err) console.log("Error inserting into table bug:", err);
-        });
+    try {
+        db.serialize(() => {
+            const sql = "INSERT INTO bug (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
+            const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+            db.run(sql, sqlVals, (err) => {
+                if(err) {
+                    console.log("Error inserting into table bug:", err);
+                    return res.status(400).json({
+                        data: null,
+                        error: {
+                            msg: err.message,
+                            ...err
+                        }
+                    });
+                }
+            });
 
-        const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
-        db.all(recentInsertedSql, (err, row) => {
-            if(err) console.log("Error selecting all values from table bug", err);
-            res.json(row);
+            const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
+            db.all(recentInsertedSql, (err, rows) => {
+                if(err) console.log("Error selecting all values from table bug", err);
+                return res.status(201).json({
+                    data: rows,
+                    error: null,
+                    msg: "Successfully created " + bugArr.length + " entries.",
+                });
+            });
         });
-    });
+    } catch(err) {
+        return res.status(500).json({
+            data: null,
+            error: err,
+        });
+    }
     
 });
 
@@ -53,8 +94,36 @@ router.put("/", (_req: Request, res: Response) => {
     res.send("put");
 });
 
-router.delete("/", (_req: Request, res: Response) => {
-    res.send("Delete");
+router.delete("/all", (_req: Request, res: Response) => {
+    try {
+        db.serialize(() => {
+            const sql = "DELETE FROM bug";
+            db.run(sql, err => {
+
+                if(err) {
+                    console.error("Error deleting all values from table bug:", err);
+                    return res.status(500).json({
+                        data: null,
+                        error: {
+                            msg: err.message,
+                            ...err
+                        }
+                    });
+                } else {
+                    return res.status(200).json({
+                        data: null,
+                        error: null,
+                        msg: "All records successfully deleted."
+                    })
+                }
+            });
+        });
+    } catch(err) {
+        return res.status(500).json({
+            data: null,
+            error: err,
+        });
+    }
 });
 
 export default router;

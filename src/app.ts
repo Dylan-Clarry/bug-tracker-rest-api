@@ -8,7 +8,7 @@ app.use(cors());
 
 app.use("/bug", bugRoute);
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response) => {
     res.send("sending it");
 });
 
