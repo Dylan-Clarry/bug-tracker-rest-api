@@ -4,8 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 const sqlite = require("sqlite3").verbose();
-const db = new sqlite.Database("./db/bug.db", sqlite.OPEN_READWRITE, err => {
+const db = new sqlite.Database(process.env.BUG_DB, sqlite.OPEN_READWRITE, err => {
     if (err) {
         console.error(err.message);
     }
@@ -21,22 +23,31 @@ router.get("/", (_req, res) => {
     const sql = "SELECT * FROM bug";
     db.serialize(() => {
         db.all(sql, (err, row) => {
+            if (err)
+                console.log("Error selecting all values from table bug", err);
             res.json(row);
         });
     });
 });
 router.post("/", (_req, res) => {
-    const sql = "INSERT INTO bug (title, text, closed) values (?, ?, ?), (?, ?, ?)";
     const bugArr = [
         ["Test Bug", "This is a test bug", 0],
         ["Bug 2", "bugbugbug", 0]
     ];
-    const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
-    db.all(sql, sqlVals, (err) => {
-        if (err)
-            console.log("Error inserting into table bug:", err);
+    db.serialize(() => {
+        const sql = "INSERT INTO bug (title, text, closed) values (?, ?, ?), (?, ?, ?)";
+        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+        db.run(sql, sqlVals, (err) => {
+            if (err)
+                console.log("Error inserting into table bug:", err);
+        });
+        const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
+        db.all(recentInsertedSql, (err, row) => {
+            if (err)
+                console.log("Error selecting all values from table bug", err);
+            res.json(row);
+        });
     });
-    res.send("Done");
 });
 router.put("/", (_req, res) => {
     res.send("put");
