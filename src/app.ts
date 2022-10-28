@@ -1,10 +1,12 @@
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
+import bodyParser from "body-parser";
 import bugRoute from "./routes/bug";
 
 const app: Express = express();
 
 app.use(cors());
+app.use(bodyParser.json());
 
 app.use("/bug", bugRoute);
 

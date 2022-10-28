@@ -1,50 +1,55 @@
 import express, { Request, Response } from "express";
-import { sqlite3 } from "sqlite3";
 import dotenv from "dotenv";
 dotenv.config();
 
-const sqlite: sqlite3 = require("sqlite3").verbose();
-const db = new sqlite.Database(process.env.BUG_DB!, sqlite.OPEN_READWRITE, err => {
-    if(err) {
-        console.error(err.message);
-    } else {
-        console.log("Connected to the bug db");
-    }
-});
+import { Bug } from "../@types/Bug";
 
-db.serialize(() => {
-    db.run("CREATE TABLE IF NOT EXISTS bug (id INTEGER PRIMARY KEY, title TEXT, text TEXT, closed INTEGER)");
-})
+const db = require("../../db/setupdb").startDb();
 
 const router: express.Router = express.Router();
 router.get("/", (_req: Request, res: Response) => {
     const sql = "SELECT * FROM bug";
-    try {
-        db.serialize(() => {
-            db.all(sql, (err, rows) => {
-                if(err){
-                    console.log("Error selecting all values from table bug:", err);
-                    return res.status(500).json({
-                        data: null,
-                        error: {
-                            msg: "Error selecting all values from table bug:" + err.message,
-                            ...err
-                        }
-                    });
-                } else {
-                    return res.status(200).json({
-                        data: rows,
-                        error: null,
-                    });
-                }
+    db.serialize(() => {
+        db.all(sql, (err: any, rows: any) => {
+            if(err){
+                console.error("Error selecting all values from table bug:", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: "Error selecting all values from table bug:" + err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(200).json({
+                data: rows,
+                error: null,
             });
         });
-    } catch(err) {
-        return res.status(500).json({
-            data: null,
-            error: err,
+    });
+});
+
+router.get("/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    const sql = "SELECT * FROM bug WHERE id=(?)";
+    db.serialize(() => {
+        db.get(sql, [id], (err: any, row: any) => {
+            if(err) {
+                console.error("Error selecting entry with id " + id + ":", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err,
+                    }
+                });
+            }
+            return res.status(200).json({
+                data: row,
+                error: null,
+            })
         });
-    }
+    });
 });
 
 router.post("/", (_req: Request, res: Response) => {
@@ -54,76 +59,119 @@ router.post("/", (_req: Request, res: Response) => {
         ["Bug 5: The search for 4", "A bug is not just a bug, he is a bug, he is a a bug", 0]
     ];
 
-    try {
-        db.serialize(() => {
-            const sql = "INSERT INTO bug (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
-            const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
-            db.run(sql, sqlVals, (err) => {
-                if(err) {
-                    console.log("Error inserting into table bug:", err);
-                    return res.status(400).json({
-                        data: null,
-                        error: {
-                            msg: err.message,
-                            ...err
-                        }
-                    });
-                }
-            });
-
-            const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
-            db.all(recentInsertedSql, (err, rows) => {
-                if(err) console.log("Error selecting all values from table bug", err);
-                return res.status(201).json({
-                    data: rows,
-                    error: null,
-                    msg: "Successfully created " + bugArr.length + " entries.",
+    db.serialize(() => {
+        const sql = "INSERT INTO bug (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
+        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+        db.run(sql, sqlVals, (err: any) => {
+            if(err) {
+                console.error("Error inserting into table bug:", err);
+                return res.status(400).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
                 });
+            }
+        });
+
+        const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
+        db.all(recentInsertedSql, (err: any, rows: any) => {
+            if(err) {
+                console.error("Error selecting all values from table bug", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(201).json({
+                data: rows,
+                error: null,
+                msg: "Successfully created " + bugArr.length + " entries.",
             });
         });
-    } catch(err) {
-        return res.status(500).json({
-            data: null,
-            error: err,
-        });
-    }
-    
+    });
 });
 
-router.put("/", (_req: Request, res: Response) => {
-    res.send("put");
-});
-
-router.delete("/all", (_req: Request, res: Response) => {
-    try {
-        db.serialize(() => {
-            const sql = "DELETE FROM bug";
-            db.run(sql, err => {
-
-                if(err) {
-                    console.error("Error deleting all values from table bug:", err);
-                    return res.status(500).json({
-                        data: null,
-                        error: {
-                            msg: err.message,
-                            ...err
-                        }
-                    });
-                } else {
-                    return res.status(200).json({
-                        data: null,
-                        error: null,
-                        msg: "All records successfully deleted."
-                    })
-                }
+router.put("/:id", (req: Request, res: Response) => {
+    const id = +req.params.id;
+    const bug: Bug = {
+        id: id,
+        title: req.params.title,
+        text: req.params.text,
+        closed: req.params.closed === "true" ? true : false,
+    };
+    db.serialize(() => {
+        const sql = "UPDATE bug SET title=COALESCE(?, title), text=COALESCE(?, text), closed=(?, closed) WHERE id=?";
+        const sqlVals = [bug.title, bug.text, bug.closed ? 1 : 0, id];
+        db.run(sql, sqlVals, (err: any) => {
+            if(err) {
+                console.error("Error updating value from table bug: ", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: "Error updating value from table bug: " + err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(200).json({
+                data: null,
+                error: null,
+                msg: "Successfully updated entry with id " + id,
             });
         });
-    } catch(err) {
-        return res.status(500).json({
-            data: null,
-            error: err,
+    });
+});
+
+router.delete("/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    db.serialize(() => {
+        const sql = "DELETE FROM bug WHERE id=(?)";
+        db.run(sql, [id], (err: any) => {
+            if(err) {
+                console.error("Error deleting from table bug with id " + id + ":", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(200).json({
+                data: null,
+                error: null,
+                msg: "Entry with id " + id + " successfully deleted",
+            });
         });
-    }
+    });
+});
+
+router.delete("/", (_req: Request, res: Response) => {
+    db.serialize(() => {
+        const sql = "DELETE FROM bug";
+        db.run(sql, (err: any) => {
+            if(err) {
+                console.error("Error deleting all values from table bug:", err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(200).json({
+                data: null,
+                error: null,
+                msg: "All records successfully deleted."
+            })
+        });
+    });
 });
 
 export default router;
