@@ -97,16 +97,21 @@ router.post("/", (_req: Request, res: Response) => {
 });
 
 router.put("/:id", (req: Request, res: Response) => {
-    const id = +req.params.id;
     const bug: Bug = {
-        id: id,
-        title: req.params.title,
-        text: req.params.text,
-        closed: req.params.closed === "true" ? true : false,
+        id: +req.params.id,
+        title: req.body.title,
+        text: req.body.text,
+        closed: req.body.closed
     };
+    console.log("body", req.body);
+    console.log("bug", bug);
     db.serialize(() => {
-        const sql = "UPDATE bug SET title=COALESCE(?, title), text=COALESCE(?, text), closed=(?, closed) WHERE id=?";
-        const sqlVals = [bug.title, bug.text, bug.closed ? 1 : 0, id];
+        const sql = `
+            UPDATE bug
+            SET title=COALESCE(?, title), text=COALESCE(?, text), closed=COALESCE(?, closed)
+            WHERE id=?
+        `;
+        const sqlVals = [bug.title, bug.text, bug.closed ? 1 : 0, bug.id];
         db.run(sql, sqlVals, (err: any) => {
             if(err) {
                 console.error("Error updating value from table bug: ", err);
@@ -121,7 +126,7 @@ router.put("/:id", (req: Request, res: Response) => {
             return res.status(200).json({
                 data: null,
                 error: null,
-                msg: "Successfully updated entry with id " + id,
+                msg: "Successfully updated entry with id " + bug.id,
             });
         });
     });
