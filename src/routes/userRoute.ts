@@ -2,10 +2,10 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 dotenv.config();
 
-import { Bug } from "../@types/Bug";
+import { User } from "../@types/User";
 
 const db = require("../../db/setupdb").startDb();
-const TABLE = "bug";
+const TABLE = "user";
 
 const router: express.Router = express.Router();
 router.get("/", (_req: Request, res: Response) => {
@@ -54,15 +54,15 @@ router.get("/:id", (req: Request, res: Response) => {
 });
 
 router.post("/", (_req: Request, res: Response) => {
-    const bugArr = [
-        ["Test Bug", "This is a test bug", 0],
-        ["Bug 3", "Buggy", 0],
-        ["Bug 5: The search for 4", "A bug is not just a bug, he is a bug, he is a a bug", 0]
+    const userArr = [
+        ["Jon Rahm", "shhhhhh", "jon@jonrahmgaming.com"],
+        ["Crocs McGee", "sooooosecret", "crocs@crocs.com"],
+        ["Duck", "quack", "duck@bird.com"],
     ];
 
     db.serialize(() => {
-        const sql = "INSERT INTO " + TABLE + " (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
-        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+        const sql = "INSERT INTO " + TABLE + " (username, password, email) values " + "(?, ?, ?), ".repeat(userArr.length - 1) + "(?, ?, ?)";
+        const sqlVals = userArr.reduce((newArr, user) => newArr.concat(...user));
         db.run(sql, sqlVals, (err: any) => {
             if(err) {
                 console.error("Error inserting into table " + TABLE + ":", err);
@@ -76,7 +76,7 @@ router.post("/", (_req: Request, res: Response) => {
             }
         });
 
-        const recentInsertedSql = "SELECT * FROM " + TABLE + " ORDER BY id DESC LIMIT " + bugArr.length;
+        const recentInsertedSql = "SELECT * FROM " + TABLE + " ORDER BY id DESC LIMIT " + userArr.length;
         db.all(recentInsertedSql, (err: any, rows: any) => {
             if(err) {
                 console.error("Error selecting all values from table" + TABLE + ":",  err);
@@ -91,26 +91,26 @@ router.post("/", (_req: Request, res: Response) => {
             return res.status(201).json({
                 data: rows,
                 error: null,
-                msg: "Successfully created " + bugArr.length + " entries.",
+                msg: "Successfully created " + userArr.length + " entries.",
             });
         });
     });
 });
 
 router.put("/:id", (req: Request, res: Response) => {
-    const bug: Bug = {
+    const user: User = {
         id: +req.params.id,
-        title: req.body.title,
-        text: req.body.text,
-        closed: req.body.closed
+        username: req.body.username,
+        password: req.body.password,
+        email: req.body.email,
     };
     db.serialize(() => {
         const sql = `
             UPDATE ${TABLE}
-            SET title=COALESCE(?, title), text=COALESCE(?, text), closed=COALESCE(?, closed)
+            SET username=COALESCE(?, username), password=COALESCE(?, password), email=COALESCE(?, email)
             WHERE id=?
         `;
-        const sqlVals = [bug.title, bug.text, bug.closed ? 1 : 0, bug.id];
+        const sqlVals = [user.username, user.password, user.email, user.id];
         db.run(sql, sqlVals, (err: any) => {
             if(err) {
                 console.error("Error updating value from table " + TABLE + ":", err);
@@ -125,7 +125,7 @@ router.put("/:id", (req: Request, res: Response) => {
             return res.status(200).json({
                 data: null,
                 error: null,
-                msg: "Successfully updated entry with id " + bug.id,
+                msg: "Successfully updated entry with id " + user.id,
             });
         });
     });
