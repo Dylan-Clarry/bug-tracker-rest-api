@@ -53,7 +53,52 @@ router.get("/:id", (req: Request, res: Response) => {
     });
 });
 
-router.post("/", (_req: Request, res: Response) => {
+router.post("/", (req: Request, res: Response) => {
+    const user: User = {
+        id: +req.params.id,
+        username: req.body.username,
+        password: req.body.password,
+        email: req.body.email
+    };
+
+    db.serialize(() => {
+        const sql = "INSERT INTO " + TABLE + " (username, password, email) values (?, ?, ?)";
+        const sqlVals = [user.username, user.password, user.email];
+        db.run(sql, sqlVals, (err: any) => {
+            if(err) {
+                console.error("Error inserting into table " + TABLE + ":", err);
+                return res.status(400).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+        });
+
+        const recentInsertedSql = "SELECT * FROM " + TABLE + " ORDER BY id DESC LIMIT 1";
+        db.all(recentInsertedSql, (err: any, rows: any) => {
+            if(err) {
+                console.error("Error selecting all values from table" + TABLE + ":",  err);
+                return res.status(500).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(201).json({
+                data: rows,
+                error: null,
+                msg: "Successfully created a new user"
+            });
+        });
+    });
+});
+
+router.post("/test", (_req: Request, res: Response) => {
     const userArr = [
         ["Jon Rahm", "shhhhhh", "jon@jonrahmgaming.com"],
         ["Crocs McGee", "sooooosecret", "crocs@crocs.com"],

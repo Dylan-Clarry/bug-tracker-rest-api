@@ -46,7 +46,56 @@ router.get("/:id", (req, res) => {
         });
     });
 });
-router.post("/", (_req, res) => {
+router.post("/", (req, res) => {
+    const user = {
+        id: +req.params.id,
+        username: req.body.username,
+        password: req.body.password,
+        email: req.body.email
+    };
+    db.serialize(() => {
+        const sql = `
+            UPDATE ${TABLE}
+            SET title=COALESCE(?, title), text=COALESCE(?, text), closed=COALESCE(?, closed)
+            WHERE id=?
+        `;
+        const sqlVals = [user.title, user.text, user.closed ? 1 : 0, user.id];
+    });
+    const bugArr = [
+        ["Test Bug", "This is a test bug", 0],
+        ["Bug 3", "Buggy", 0],
+        ["Bug 5: The search for 4", "A bug is not just a bug, he is a bug, he is a a bug", 0]
+    ];
+    db.serialize(() => {
+        const sql = "INSERT INTO " + TABLE + " (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
+        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+        db.run(sql, sqlVals, (err) => {
+            if (err) {
+                console.error("Error inserting into table " + TABLE + ":", err);
+                return res.status(400).json({
+                    data: null,
+                    error: Object.assign({ msg: err.message }, err)
+                });
+            }
+        });
+        const recentInsertedSql = "SELECT * FROM " + TABLE + " ORDER BY id DESC LIMIT " + bugArr.length;
+        db.all(recentInsertedSql, (err, rows) => {
+            if (err) {
+                console.error("Error selecting all values from table" + TABLE + ":", err);
+                return res.status(500).json({
+                    data: null,
+                    error: Object.assign({ msg: err.message }, err)
+                });
+            }
+            return res.status(201).json({
+                data: rows,
+                error: null,
+                msg: "Successfully created " + bugArr.length + " entries.",
+            });
+        });
+    });
+});
+router.post("/test", (_req, res) => {
     const bugArr = [
         ["Test Bug", "This is a test bug", 0],
         ["Bug 3", "Buggy", 0],

@@ -52,16 +52,17 @@ router.get("/:id", (req: Request, res: Response) => {
     });
 });
 
-router.post("/", (_req: Request, res: Response) => {
-    const bugArr = [
-        ["Test Bug", "This is a test bug", 0],
-        ["Bug 3", "Buggy", 0],
-        ["Bug 5: The search for 4", "A bug is not just a bug, he is a bug, he is a a bug", 0]
-    ];
+router.post("/", (req: Request, res: Response) => {
+    const bug: Bug = {
+        id: +req.params.id,
+        title: req.body.title,
+        text: req.body.text,
+        closed: req.body.closed
+    };
 
     db.serialize(() => {
-        const sql = "INSERT INTO bug (title, text, closed) values " + "(?, ?, ?), ".repeat(bugArr.length - 1) + "(?, ?, ?)";
-        const sqlVals = bugArr.reduce((newArr, bug) => newArr.concat(...bug));
+        const sql = "INSERT INTO bug (title, text, closed) values (?, ?, ?)"
+        const sqlVals = [bug.title, bug.text, bug.closed ? 1 : 0];
         db.run(sql, sqlVals, (err: any) => {
             if(err) {
                 console.error("Error inserting into table bug:", err);
@@ -75,7 +76,7 @@ router.post("/", (_req: Request, res: Response) => {
             }
         });
 
-        const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT " + bugArr.length;
+        const recentInsertedSql = "SELECT * FROM bug ORDER BY id DESC LIMIT 1";
         db.all(recentInsertedSql, (err: any, rows: any) => {
             if(err) {
                 console.error("Error selecting all values from table bug", err);
@@ -90,7 +91,7 @@ router.post("/", (_req: Request, res: Response) => {
             return res.status(201).json({
                 data: rows,
                 error: null,
-                msg: "Successfully created " + bugArr.length + " entries.",
+                msg: "Successfully created new bug entry.",
             });
         });
     });
