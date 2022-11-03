@@ -53,20 +53,53 @@ router.get("/:id", (req: Request, res: Response) => {
     });
 });
 
-router.post("/", (req: Request, res: Response) => {
+router.post("/login", (req: Request, res: Response) => {
+    const login = {
+        username: req.body.username,
+        password: req.body.password,
+    }
+
+    db.serialize(() => {
+        const sql = `
+            SELECT id
+            FROM user u 
+            WHERE u.username = (?)
+            AND u.password = (?)
+        `;
+        const sqlVals = [login.username, login.password];
+        db.get(sql, sqlVals, (err: any, row: any) => {
+            if(err) {
+                console.error("Error retrieving user with credentials \nusername: " + login.username + "\npassword: " + login.password + "\n", err);
+                return res.status(400).json({
+                    data: null,
+                    error: {
+                        msg: err.message,
+                        ...err
+                    }
+                });
+            }
+            return res.status(201).json({
+                data: row,
+                error: null,
+            });
+        })
+    });
+});
+
+router.post("/create", (req: Request, res: Response) => {
     const user: User = {
-        id: +req.params.id,
+        id: -1,
         username: req.body.username,
         password: req.body.password,
         email: req.body.email
     };
 
     db.serialize(() => {
-        const sql = "INSERT INTO " + TABLE + " (username, password, email) values (?, ?, ?)";
+        const sql = "INSERT INTO user (username, password, email) values (?, ?, ?)";
         const sqlVals = [user.username, user.password, user.email];
         db.run(sql, sqlVals, (err: any) => {
             if(err) {
-                console.error("Error inserting into table " + TABLE + ":", err);
+                console.error("Error inserting into table user:", err);
                 return res.status(400).json({
                     data: null,
                     error: {
@@ -77,10 +110,10 @@ router.post("/", (req: Request, res: Response) => {
             }
         });
 
-        const recentInsertedSql = "SELECT * FROM " + TABLE + " ORDER BY id DESC LIMIT 1";
+        const recentInsertedSql = "SELECT * FROM user ORDER BY id DESC LIMIT 1";
         db.all(recentInsertedSql, (err: any, rows: any) => {
             if(err) {
-                console.error("Error selecting all values from table" + TABLE + ":",  err);
+                console.error("Error selecting all values from table user:",  err);
                 return res.status(500).json({
                     data: null,
                     error: {

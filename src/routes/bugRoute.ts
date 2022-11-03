@@ -104,8 +104,6 @@ router.put("/:id", (req: Request, res: Response) => {
         text: req.body.text,
         closed: req.body.closed
     };
-    console.log("body", req.body);
-    console.log("bug", bug);
     db.serialize(() => {
         const sql = `
             UPDATE bug
